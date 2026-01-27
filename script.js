@@ -1,9 +1,12 @@
 let unfollowCount = 0;
 let skipCount = 0;
+let unfollowTimeout = null;
 const PAUSE_AFTER = 50;
 const PAUSE_DURATION = 300000;
 const TARGET_UNFOLLOWS = 200;
 const PROTECT_MUTUAL_FOLLOWERS = true;
+const MAX_SCROLL_ATTEMPTS = 100;
+let scrollAttempts = 0;
 
 function drawProgressBar(current, target, width = 40) {
     const percentage = Math.min((current / target) * 100, 100);
@@ -31,30 +34,30 @@ function displayStats() {
 ║         TWITTER UNFOLLOW AUTOMATION v2.2                      ║
 ╚═══════════════════════════════════════════════════════════════╝
 
-📊 ПРОГРЕСС
+📊 PROGRESS
    [${progress.bar}] ${progress.percentage}%
-   ${progress.current} / ${progress.target} отписок
+   ${progress.current} / ${progress.target} unfollows
 
-📈 СТАТИСТИКА
-   ✅ Отписано:          ${unfollowCount}
-   ⏭️  Пропущено:        ${skipCount}
-   📝 Всего обработано:  ${unfollowCount + skipCount}
-   ⚡ Успешность:        ${(unfollowCount + skipCount) > 0 ? ((unfollowCount / (unfollowCount + skipCount)) * 100).toFixed(1) : 0}%
+📈 STATISTICS
+   ✅ Unfollowed:       ${unfollowCount}
+   ⏭️  Skipped:         ${skipCount}
+   📝 Total processed:  ${unfollowCount + skipCount}
+   ⚡ Success rate:     ${(unfollowCount + skipCount) > 0 ? ((unfollowCount / (unfollowCount + skipCount)) * 100).toFixed(1) : 0}%
 
-⏸️  СЛЕДУЮЩАЯ ПАУЗА
-   Через ${untilPause} отписок (на ${nextPause})
+⏸️  NEXT PAUSE
+   In ${untilPause} unfollows (at ${nextPause})
 
-⏱️  ВРЕМЯ: ${new Date().toLocaleTimeString()}
+⏱️  TIME: ${new Date().toLocaleTimeString()}
 
-🎯 СТАТУС: ${unfollowCount >= TARGET_UNFOLLOWS ? '✅ ЦЕЛЬ ДОСТИГНУТА!' : '🔄 РАБОТАЕТ...'}
+🎯 STATUS: ${unfollowCount >= TARGET_UNFOLLOWS ? '✅ GOAL REACHED!' : '🔄 RUNNING...'}
     `);
 }
 
 function playBeep(frequency = 800, duration = 200) {
     try {
-        let audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        let oscillator = audioContext.createOscillator();
-        let gainNode = audioContext.createGain();
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
         
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
@@ -64,14 +67,18 @@ function playBeep(frequency = 800, duration = 200) {
         
         oscillator.start();
         setTimeout(() => oscillator.stop(), duration);
-    } catch (e) {}
+    } catch (e) {
+        console.warn('Audio context not available');
+    }
 }
 
 function removeProcessedButton(button) {
-    let userCell = button.closest('[data-testid="UserCell"]') || 
-                   button.closest('div[data-testid$="-cell"]') ||
-                   button.closest('article') ||
-                   button.parentElement.parentElement.parentElement;
+    if (!button) return;
+    
+    const userCell = button.closest('[data-testid="UserCell"]') || 
+                     button.closest('div[data-testid$="-cell"]') ||
+                     button.closest('article') ||
+                     button.parentElement?.parentElement?.parentElement;
     
     if (userCell) {
         userCell.style.opacity = '0.5';
@@ -86,11 +93,11 @@ function unfollowWithFilter() {
         playBeep(1000, 500);
         console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
-║                    🎉 ЦЕЛЬ ДОСТИГНУТА! 🎉                     ║
+║                    🎉 GOAL REACHED! 🎉                        ║
 ╠═══════════════════════════════════════════════════════════════╣
-║  Всего отписано:   ${unfollowCount}
-║  Всего пропущено:  ${skipCount}
-║  Всего обработано: ${unfollowCount + skipCount}
+║  Total unfollowed:  ${unfollowCount}
+║  Total skipped:     ${skipCount}
+║  Total processed:   ${unfollowCount + skipCount}
 ╚═══════════════════════════════════════════════════════════════╝
         `);
         return;
@@ -103,11 +110,11 @@ function unfollowWithFilter() {
         const resumeTime = new Date(Date.now() + PAUSE_DURATION);
         console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
-║                    ⏸️  АВТОМАТИЧЕСКАЯ ПАУЗА ⏸️                 ║
+║                    ⏸️  AUTO PAUSE ⏸️                           ║
 ╠═══════════════════════════════════════════════════════════════╣
-║  Длительность:     ${PAUSE_DURATION / 60000} минут
-║  Возобновление:    ${resumeTime.toLocaleTimeString()}
-║  Прогресс:         ${unfollowCount}/${TARGET_UNFOLLOWS}
+║  Duration:         ${PAUSE_DURATION / 60000} minutes
+║  Resume at:        ${resumeTime.toLocaleTimeString()}
+║  Progress:         ${unfollowCount}/${TARGET_UNFOLLOWS}
 ╚═══════════════════════════════════════════════════════════════╝
         `);
         
@@ -116,7 +123,7 @@ function unfollowWithFilter() {
             remainingSeconds--;
             const minutes = Math.floor(remainingSeconds / 60);
             const seconds = remainingSeconds % 60;
-            console.log(`⏳ Возобновление через: ${minutes}м ${seconds}с...`);
+            console.log(`⏳ Resume in: ${minutes}m ${seconds}s...`);
             
             if (remainingSeconds <= 0) clearInterval(countdownInterval);
         }, 1000);
@@ -124,12 +131,13 @@ function unfollowWithFilter() {
         unfollowTimeout = setTimeout(() => {
             clearInterval(countdownInterval);
             playBeep(1000, 300);
+            scrollAttempts = 0;
             unfollowWithFilter();
         }, PAUSE_DURATION);
         return;
     }
     
-    let confirmButton = document.querySelector('[data-testid="confirmationSheetConfirm"]');
+    const confirmButton = document.querySelector('[data-testid="confirmationSheetConfirm"]');
     
     if (confirmButton) {
         confirmButton.click();
@@ -140,28 +148,36 @@ function unfollowWithFilter() {
         return;
     }
     
-    let unfollowButtons = document.querySelectorAll('[data-testid$="-unfollow"]');
+    const unfollowButtons = document.querySelectorAll('[data-testid$="-unfollow"]');
     
     if (unfollowButtons.length === 0) {
-        window.scrollBy(0, 1000);
-        unfollowTimeout = setTimeout(unfollowWithFilter, Math.floor(Math.random() * 2001) + 3000);
-        return;
+        if (scrollAttempts < MAX_SCROLL_ATTEMPTS) {
+            scrollAttempts++;
+            window.scrollBy(0, 1000);
+            unfollowTimeout = setTimeout(unfollowWithFilter, Math.floor(Math.random() * 2001) + 3000);
+            return;
+        } else {
+            console.log('⚠️ Max scroll attempts reached. Script stopped.');
+            stopScript();
+            return;
+        }
     }
     
-    let button = unfollowButtons[0];
+    scrollAttempts = 0;
+    const button = unfollowButtons[0];
     
     if (PROTECT_MUTUAL_FOLLOWERS) {
-        let userContainer = button.closest('[data-testid="UserCell"]') || 
-                           button.closest('div[data-testid$="-cell"]') ||
-                           button.closest('article') ||
-                           button.parentElement.parentElement.parentElement;
+        const userContainer = button.closest('[data-testid="UserCell"]') || 
+                             button.closest('div[data-testid$="-cell"]') ||
+                             button.closest('article') ||
+                             button.parentElement?.parentElement?.parentElement;
         
         if (userContainer) {
-            let allText = userContainer.innerText || userContainer.textContent || '';
-            let isFollowingBack = allText.includes('Follows you') || 
-                                 allText.includes('Подписан') ||
-                                 allText.includes('Подписана') ||
-                                 allText.includes('Читает вас');
+            const allText = userContainer.innerText || userContainer.textContent || '';
+            const isFollowingBack = allText.includes('Follows you') || 
+                                   allText.includes('Подписан') ||
+                                   allText.includes('Подписана') ||
+                                   allText.includes('Читает вас');
             
             if (isFollowingBack) {
                 skipCount++;
@@ -181,34 +197,35 @@ function unfollowWithFilter() {
 }
 
 function stopScript() {
-    clearTimeout(unfollowTimeout);
+    if (unfollowTimeout) {
+        clearTimeout(unfollowTimeout);
+    }
     displayStats();
     playBeep(400, 500);
     console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
-║                    🛑 СКРИПТ ОСТАНОВЛЕН 🛑                    ║
+║                    🛑 SCRIPT STOPPED 🛑                       ║
 ╠═══════════════════════════════════════════════════════════════╣
-║  Всего отписано:   ${unfollowCount}
-║  Всего пропущено:  ${skipCount}
-║  Всего обработано: ${unfollowCount + skipCount}
+║  Total unfollowed:  ${unfollowCount}
+║  Total skipped:     ${skipCount}
+║  Total processed:   ${unfollowCount + skipCount}
 ╚═══════════════════════════════════════════════════════════════╝
     `);
 }
 
-let unfollowTimeout;
 console.clear();
 console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
 ║         TWITTER UNFOLLOW AUTOMATION v2.2                      ║
 ╠═══════════════════════════════════════════════════════════════╣
-║  🚀 Запуск скрипта...
-║  🎯 Цель: ${TARGET_UNFOLLOWS} отписок
-║  ⏱️  Задержка: 3-5 секунд
-║  🛡️  ЗАЩИТА ВЗАИМНЫХ ПОДПИСЧИКОВ: ВКЛ
-║  ⏸️  Авто-пауза: Каждые ${PAUSE_AFTER} отписок
+║  🚀 Script starting...
+║  🎯 Goal: ${TARGET_UNFOLLOWS} unfollows
+║  ⏱️  Delay: 3-5 seconds
+║  🛡️  MUTUAL FOLLOWERS PROTECTION: ON
+║  ⏸️  Auto-pause: Every ${PAUSE_AFTER} unfollows
 ╚═══════════════════════════════════════════════════════════════╝
 
-Для остановки: stopScript()
+To stop: stopScript()
 `);
 
 setTimeout(() => {
