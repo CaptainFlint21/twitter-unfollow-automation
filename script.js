@@ -7,6 +7,7 @@ const TARGET_UNFOLLOWS = 200;
 const PROTECT_MUTUAL_FOLLOWERS = true;
 const MAX_SCROLL_ATTEMPTS = 100;
 let scrollAttempts = 0;
+let isPaused = false; // Добавлено для предотвращения зацикливания
 
 function drawProgressBar(current, target, width = 40) {
     const percentage = Math.min((current / target) * 100, 100);
@@ -25,7 +26,7 @@ function drawProgressBar(current, target, width = 40) {
 
 function displayStats() {
     const progress = drawProgressBar(unfollowCount, TARGET_UNFOLLOWS);
-    const nextPause = Math.ceil(unfollowCount / PAUSE_AFTER) * PAUSE_AFTER;
+    const nextPause = Math.ceil((unfollowCount + 1) / PAUSE_AFTER) * PAUSE_AFTER;
     const untilPause = nextPause - unfollowCount;
     
     console.clear();
@@ -103,7 +104,9 @@ function unfollowWithFilter() {
         return;
     }
     
-    if (unfollowCount > 0 && unfollowCount % PAUSE_AFTER === 0) {
+    // Исправленное условие паузы
+    if (unfollowCount > 0 && unfollowCount % PAUSE_AFTER === 0 && !isPaused) {
+        isPaused = true;
         displayStats();
         playBeep(600, 300);
         
@@ -136,12 +139,13 @@ function unfollowWithFilter() {
         }, PAUSE_DURATION);
         return;
     }
-    
+
     const confirmButton = document.querySelector('[data-testid="confirmationSheetConfirm"]');
     
     if (confirmButton) {
         confirmButton.click();
         unfollowCount++;
+        isPaused = false; // Сбрасываем флаг паузы после действия
         displayStats();
         
         unfollowTimeout = setTimeout(unfollowWithFilter, Math.floor(Math.random() * 2001) + 3000);
@@ -191,6 +195,7 @@ function unfollowWithFilter() {
     
     button.click();
     removeProcessedButton(button);
+    isPaused = false; // Сбрасываем флаг паузы после клика
     displayStats();
     
     unfollowTimeout = setTimeout(unfollowWithFilter, Math.floor(Math.random() * 2001) + 3000);
