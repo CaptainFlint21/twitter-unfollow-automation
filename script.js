@@ -12,11 +12,13 @@ const TARGET_UNFOLLOWS = 200;
 
 const PROTECT_MUTUAL_FOLLOWERS = true;
 
+const PROTECT_VERIFIED_ACCOUNTS = true;
+
 const MAX_SCROLL_ATTEMPTS = 100;
 
 let scrollAttempts = 0;
 
-let isPaused = false; // Добавлено для предотвращения зацикливания
+let isPaused = false;
 
 function drawProgressBar(current, target, width = 40) {
 
@@ -163,13 +165,11 @@ function isVerifiedAccount(userContainer) {
     if (!userContainer) return false;
 
     
-    // Проверка на наличие SVG с атрибутами верификации
     const verificationSvgs = userContainer.querySelectorAll('svg');
     
     for (let svg of verificationSvgs) {
         const ariaLabel = svg.getAttribute('aria-label') || '';
         
-        // Проверяем на синюю галочку (Verified), желтую (Official) и другие типы верификации
         if (ariaLabel.includes('Verified') || 
             ariaLabel.includes('Official') ||
             ariaLabel.includes('верифицирован') ||
@@ -212,8 +212,6 @@ function unfollowWithFilter() {
     }
 
     
-
-    // Исправленное условие паузы
 
     if (unfollowCount > 0 && unfollowCount % PAUSE_AFTER === 0 && !isPaused) {
 
@@ -293,7 +291,7 @@ function unfollowWithFilter() {
 
         unfollowCount++;
 
-        isPaused = false; // Сбрасываем флаг паузы после действия
+        isPaused = false;
 
         displayStats();
 
@@ -353,8 +351,7 @@ function unfollowWithFilter() {
 
     
 
-    // Проверка на верификацию
-    if (isVerifiedAccount(userContainer)) {
+    if (PROTECT_VERIFIED_ACCOUNTS && isVerifiedAccount(userContainer)) {
 
         skipCount++;
 
@@ -410,7 +407,7 @@ function unfollowWithFilter() {
 
     removeProcessedButton(button);
 
-    isPaused = false; // Сбрасываем флаг паузы после клика
+    isPaused = false;
 
     displayStats();
 
@@ -452,32 +449,25 @@ function stopScript() {
 
 }
 
+// ИНИЦИАЛИЗАЦИЯ
+const mutualStatus = PROTECT_MUTUAL_FOLLOWERS ? 'ON' : 'OFF';
+const verifiedStatus = PROTECT_VERIFIED_ACCOUNTS ? 'ON' : 'OFF';
+
 console.clear();
 
 console.log(`
-
 ╔═══════════════════════════════════════════════════════════════╗
-
 ║         TWITTER UNFOLLOW AUTOMATION v2.2                      ║
-
 ╠═══════════════════════════════════════════════════════════════╣
-
 ║  🚀 Script starting...
-
 ║  🎯 Goal: ${TARGET_UNFOLLOWS} unfollows
-
 ║  ⏱️  Delay: 3-5 seconds
-
-║  🛡️  MUTUAL FOLLOWERS PROTECTION: ON
-
-║  ✅ VERIFIED ACCOUNTS PROTECTION: ON
-
+║  🛡️  MUTUAL FOLLOWERS PROTECTION: ${mutualStatus}
+║  ✅ VERIFIED ACCOUNTS PROTECTION: ${verifiedStatus}
 ║  ⏸️  Auto-pause: Every ${PAUSE_AFTER} unfollows
-
 ╚═══════════════════════════════════════════════════════════════╝
 
 To stop: stopScript()
-
 `);
 
 setTimeout(() => {
