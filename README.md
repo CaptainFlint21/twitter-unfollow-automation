@@ -26,7 +26,7 @@
 ## Настройка
 
 ```javascript
-const TARGET_UNFOLLOWS = 200;      // Цель отписок
+const TARGET_UNFOLLOWS = 200;      // Цель отписок (200)
 const PAUSE_AFTER = 50;             // Пауза каждые N отписок
 const PAUSE_DURATION = 300000;      // Длительность паузы (мс)
 const PROTECT_MUTUAL_FOLLOWERS = true; // Защита взаимных (true/false)
