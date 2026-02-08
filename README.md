@@ -29,5 +29,5 @@
 const TARGET_UNFOLLOWS = 200;      // Цель отписок
 const PAUSE_AFTER = 50;             // Пауза каждые N отписок
 const PAUSE_DURATION = 300000;      // Длительность паузы (мс)
-const PROTECT_MUTUAL_FOLLOWERS = true; // Защита взаимных
-const PROTECT_VERIFIED_ACCOUNTS = true; // Измени на false, чтобы отключить
+const PROTECT_MUTUAL_FOLLOWERS = true; // Защита взаимных (true/false)
+const PROTECT_VERIFIED_ACCOUNTS = true; // Защита верифицированных (true/false)
