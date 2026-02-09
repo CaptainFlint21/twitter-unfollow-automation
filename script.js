@@ -6,7 +6,7 @@ let unfollowTimeout = null;
 
 const PAUSE_AFTER = 50;
 
-const PAUSE_DURATION = 300000;
+const PAUSE_DURATION = 300000; // 5 минут
 
 const TARGET_UNFOLLOWS = 200;
 
@@ -19,6 +19,8 @@ const MAX_SCROLL_ATTEMPTS = 100;
 let scrollAttempts = 0;
 
 let isPaused = false;
+
+let pauseExecuted = false; // ← НОВАЯ ПЕРЕМЕННАЯ для отслеживания паузы
 
 function drawProgressBar(current, target, width = 40) {
 
@@ -52,10 +54,6 @@ function displayStats() {
 
     const progress = drawProgressBar(unfollowCount, TARGET_UNFOLLOWS);
 
-    const nextPause = Math.ceil((unfollowCount + 1) / PAUSE_AFTER) * PAUSE_AFTER;
-
-    const untilPause = nextPause - unfollowCount;
-
     
 
     console.clear();
@@ -84,9 +82,9 @@ function displayStats() {
 
    ⚡ Success rate:     ${(unfollowCount + skipCount) > 0 ? ((unfollowCount / (unfollowCount + skipCount)) * 100).toFixed(1) : 0}%
 
-⏸️  NEXT PAUSE
+⏸️  PAUSE STATUS
 
-   In ${untilPause} unfollows (at ${nextPause})
+   ${pauseExecuted ? '✅ Пауза уже выполнена' : '⏳ Пауза ожидает (после 50 отписок)'}
 
 ⏱️  TIME: ${new Date().toLocaleTimeString()}
 
@@ -213,7 +211,10 @@ function unfollowWithFilter() {
 
     
 
-    if (unfollowCount > 0 && unfollowCount % PAUSE_AFTER === 0 && !isPaused) {
+    // ← ИСПРАВЛЕННАЯ ЛОГИКА: пауза только один раз, после 50 отписок
+    if (unfollowCount === PAUSE_AFTER && !pauseExecuted) {
+
+        pauseExecuted = true;
 
         isPaused = true;
 
@@ -273,6 +274,8 @@ function unfollowWithFilter() {
 
             scrollAttempts = 0;
 
+            isPaused = false;
+
             unfollowWithFilter();
 
         }, PAUSE_DURATION);
@@ -290,8 +293,6 @@ function unfollowWithFilter() {
         confirmButton.click();
 
         unfollowCount++;
-
-        isPaused = false;
 
         displayStats();
 
@@ -407,8 +408,6 @@ function unfollowWithFilter() {
 
     removeProcessedButton(button);
 
-    isPaused = false;
-
     displayStats();
 
     
@@ -464,7 +463,7 @@ console.log(`
 ║  ⏱️  Delay: 3-5 seconds
 ║  🛡️  MUTUAL FOLLOWERS PROTECTION: ${mutualStatus}
 ║  ✅ VERIFIED ACCOUNTS PROTECTION: ${verifiedStatus}
-║  ⏸️  Auto-pause: Every ${PAUSE_AFTER} unfollows
+║  ⏸️  Auto-pause: 1 раз на 5 минут после ${PAUSE_AFTER} отписок
 ╚═══════════════════════════════════════════════════════════════╝
 
 To stop: stopScript()
