@@ -11,7 +11,7 @@ const MAX_SCROLL_ATTEMPTS = 100;
 
 let scrollAttempts = 0;
 let isPaused = false;
-let pauseExecuted = false;
+let lastPauseAt = 0; // ← НОВОЕ: запоминаем, на каком числе уже была пауза
 
 function drawProgressBar(current, target, width = 40) {
     const percentage = Math.min((current / target) * 100, 100);
@@ -48,7 +48,7 @@ function displayStats() {
    ⚡ Success rate:     ${(unfollowCount + skipCount) > 0 ? ((unfollowCount / (unfollowCount + skipCount)) * 100).toFixed(1) : 0}%
 
 ⏸️  PAUSE STATUS
-   ${pauseExecuted ? '✅ Пауза уже выполнена' : '⏳ Пауза ожидает (после 50 отписок)'}
+   ⏳ Пауза каждые ${PAUSE_AFTER} отписок
 
 ⏱️  TIME: ${new Date().toLocaleTimeString()}
 
@@ -110,8 +110,6 @@ function isVerifiedAccount(userContainer) {
 }
 
 function executePause() {
-    // ← ОТДЕЛЬНАЯ ФУНКЦИЯ для паузы
-    pauseExecuted = true;
     isPaused = true;
     displayStats();
     playBeep(600, 300);
@@ -162,10 +160,15 @@ function unfollowWithFilter() {
         return;
     }
     
-    // ← ПРОВЕРКА ПАУЗЫ ПЕРЕД ВСЕМ ОСТАЛЬНЫМ
-    if (!pauseExecuted && unfollowCount >= PAUSE_AFTER) {
+    // ← ПАУЗА КАЖДЫЕ 50 ОТПИСОК
+    if (
+        unfollowCount > 0 &&
+        unfollowCount % PAUSE_AFTER === 0 &&
+        unfollowCount !== lastPauseAt
+    ) {
+        lastPauseAt = unfollowCount;
         executePause();
-        return; // ← ВАЖНО: выходим из функции, чтобы не продолжать дальше
+        return;
     }
 
     const confirmButton = document.querySelector('[data-testid="confirmationSheetConfirm"]');
@@ -266,7 +269,7 @@ console.log(`
 ║  ⏱️  Delay: 3-5 seconds
 ║  🛡️  MUTUAL FOLLOWERS PROTECTION: ${mutualStatus}
 ║  ✅ VERIFIED ACCOUNTS PROTECTION: ${verifiedStatus}
-║  ⏸️  Auto-pause: 1 раз на 5 минут после ${PAUSE_AFTER} отписок
+║  ⏸️  Auto-pause: каждые ${PAUSE_AFTER} отписок на 5 минут
 ╚═══════════════════════════════════════════════════════════════╝
 
 To stop: stopScript()
