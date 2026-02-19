@@ -1,6 +1,9 @@
 # Twitter Unfollow Automation
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Status](https://img.shields.io/badge/status-stable-success)
 
-Автоматический скрипт для отписки от пользователей Twitter с защитой взаимных подписчиков.
+Автоматический скрипт для отписки от пользователей Twitter с защитой взаимных и верифицированных подписчиков.
 
 ## Возможности
 - ✅ Автоматическая отписка
