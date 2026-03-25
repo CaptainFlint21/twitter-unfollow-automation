@@ -1,6 +1,7 @@
 let unfollowCount = 0;
 let skipCount = 0;
 let unfollowTimeout = null;
+let countdownInterval = null; // ← ДОБАВЛЕНО
 
 const PAUSE_AFTER = 50;
 const PAUSE_DURATION = 300000; // 5 минут
@@ -11,7 +12,7 @@ const MAX_SCROLL_ATTEMPTS = 100;
 
 let scrollAttempts = 0;
 let isPaused = false;
-let lastPauseAt = 0; // ← НОВОЕ: запоминаем, на каком числе уже была пауза
+let lastPauseAt = 0;
 
 function drawProgressBar(current, target, width = 40) {
     const percentage = Math.min((current / target) * 100, 100);
@@ -126,7 +127,7 @@ function executePause() {
     `);
     
     let remainingSeconds = PAUSE_DURATION / 1000;
-    const countdownInterval = setInterval(() => {
+    countdownInterval = setInterval(() => { // ← ИЗМЕНЕНО
         remainingSeconds--;
         const minutes = Math.floor(remainingSeconds / 60);
         const seconds = remainingSeconds % 60;
@@ -160,7 +161,6 @@ function unfollowWithFilter() {
         return;
     }
     
-    // ← ПАУЗА КАЖДЫЕ 50 ОТПИСОК
     if (
         unfollowCount > 0 &&
         unfollowCount % PAUSE_AFTER === 0 &&
@@ -242,6 +242,13 @@ function stopScript() {
     if (unfollowTimeout) {
         clearTimeout(unfollowTimeout);
     }
+
+    if (countdownInterval) { // ← ДОБАВЛЕНО
+        clearInterval(countdownInterval);
+    }
+
+    isPaused = false;
+
     displayStats();
     playBeep(400, 500);
     console.log(`
